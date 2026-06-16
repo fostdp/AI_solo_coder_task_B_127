@@ -13,9 +13,55 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @Service
 public class VirtualWeavingService {
+
+    private static final int CACHE_MAX_SIZE = 1000;
+    private static final long CACHE_TTL_MS = 5 * 60 * 1000;
+
+    private final Map<CacheKey, CacheEntry> matrixCache = new ConcurrentHashMap<>();
+    private final ReentrantReadWriteLock cacheLock = new ReentrantReadWriteLock();
+
+    private static class CacheKey {
+        private final Long designId;
+        private final int version;
+
+        CacheKey(Long designId, int version) {
+            this.designId = designId;
+            this.version = version;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            CacheKey cacheKey = (CacheKey) o;
+            return version == cacheKey.version &&
+                    Objects.equals(designId, cacheKey.designId);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(designId, version);
+        }
+    }
+
+    private static class CacheEntry {
+        final int[][] matrix;
+        final long timestamp;
+        final String weaveType;
+        final int complexityHash;
+
+        CacheEntry(int[][] matrix, long timestamp, String weaveType) {
+            this.matrix = matrix;
+            this.timestamp = timestamp;
+            this.weaveType = weaveType;
+            this.complexityHash = Arrays.deepHashCode(matrix);
+        }
+    }
 
     private final UserWeavingDesignRepository designRepository;
     private final PatternDesignRepository patternRepository;
@@ -142,6 +188,194 @@ public class VirtualWeavingService {
 
     public List<UserWeavingDesign> getRecentDesigns(int limit) {
         return designRepository.findRecentDesigns(PageRequest.of(0, limit));
+    }
+
+    public int[][] getCachedMatrix(Long designId, int version) {
+        CacheKey key = new CacheKey(designId, version);
+        CacheEntry entry = matrixCache.get(key);
+        if (entry != null && System.currentTimeMillis() - entry.timestamp < CACHE_TTL_MS) {
+            return entry.matrix;
+        }
+        return loadMatrixIntoCache(designId, version);
+    }
+
+    private int[][] loadMatrixIntoCache(Long designId, int version) {
+        UserWeavingDesign design = designRepository.findById(designId)
+                .orElseThrow(() -> new IllegalArgumentException("设计不存在"));
+        String matrixStr = design.getPatternMatrix();
+        int[][] matrix;
+        if (matrixStr != null && !matrixStr.isEmpty()) {
+            matrix = parseMatrix(matrixStr);
+        } else {
+            int warp = design.getWarpCount() != null ? design.getWarpCount() : 120;
+            int weft = design.getWeftCount() != null ? design.getWeftCount() : 120;
+            matrix = generateDefaultMatrix(warp, weft);
+        }
+        String weaveType = design.getBaseVarietyName() != null ? design.getBaseVarietyName() : "plain";
+        cacheLock.writeLock().lock();
+        try {
+            if (matrixCache.size() >= CACHE_MAX_SIZE) {
+                evictOldestEntries();
+            }
+            matrixCache.put(new CacheKey(designId, version),
+                    new CacheEntry(matrix, System.currentTimeMillis(), weaveType));
+        } finally {
+            cacheLock.writeLock().unlock();
+        }
+        return matrix;
+    }
+
+    private void evictOldestEntries() {
+        long threshold = System.currentTimeMillis() - CACHE_TTL_MS;
+        matrixCache.entrySet().removeIf(e -> e.getValue().timestamp < threshold);
+        if (matrixCache.size() >= CACHE_MAX_SIZE) {
+            matrixCache.clear();
+        }
+    }
+
+    public int invalidateCache(Long designId) {
+        int removed = 0;
+        Iterator<Map.Entry<CacheKey, CacheEntry>> it = matrixCache.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<CacheKey, CacheEntry> entry = it.next();
+            if (entry.getKey().designId.equals(designId)) {
+                it.remove();
+                removed++;
+            }
+        }
+        return removed;
+    }
+
+    public Map<String, Object> getWebGLTextureData(Long designId, int version) {
+        int[][] matrix = getCachedMatrix(designId, version);
+        UserWeavingDesign design = designRepository.findById(designId)
+                .orElseThrow(() -> new IllegalArgumentException("设计不存在"));
+
+        int width = matrix[0].length;
+        int height = matrix.length;
+
+        byte[] rgbaData = new byte[width * height * 4];
+        int[][] palette = parsePalette(design.getColorPalette());
+
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                int colorIndex = matrix[i][j] % palette.length;
+                int[] rgb = palette[colorIndex];
+                int idx = (i * width + j) * 4;
+                rgbaData[idx] = (byte) rgb[0];
+                rgbaData[idx + 1] = (byte) rgb[1];
+                rgbaData[idx + 2] = (byte) rgb[2];
+                rgbaData[idx + 3] = (byte) 255;
+            }
+        }
+
+        String base64Texture = Base64.getEncoder().encodeToString(rgbaData);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("designId", designId);
+        result.put("textureWidth", width);
+        result.put("textureHeight", height);
+        result.put("rgbaData", base64Texture);
+        result.put("warpCount", design.getWarpCount());
+        result.put("weftCount", design.getWeftCount());
+        result.put("paletteSize", palette.length);
+        result.put("fromCache", true);
+        return result;
+    }
+
+    public Map<String, Object> simulateWeavingBatch(Long designId, int batchSize, int steps) {
+        UserWeavingDesign design = designRepository.findById(designId)
+                .orElseThrow(() -> new IllegalArgumentException("设计不存在"));
+        int warp = design.getWarpCount() != null ? design.getWarpCount() : 120;
+        int weft = design.getWeftCount() != null ? design.getWeftCount() : 120;
+        int totalSteps = warp * weft;
+        if (steps > totalSteps) steps = totalSteps;
+        int batches = (int) Math.ceil((double) steps / batchSize);
+
+        List<Map<String, Object>> batchResults = new ArrayList<>();
+        int currentStep = 0;
+        int[][] matrix = getCachedMatrix(designId, 0);
+        double baseTension = 0.5;
+        Random random = new Random();
+
+        for (int b = 0; b < batches; b++) {
+            int batchSteps = Math.min(batchSize, steps - currentStep);
+            double[] tensions = new double[warp];
+            int startRow = (currentStep / warp) % weft;
+            int endRow = ((currentStep + batchSteps - 1) / warp) % weft;
+
+            for (int i = 0; i < warp; i++) {
+                double factor = 1.0;
+                for (int r = startRow; r <= endRow; r++) {
+                    if (matrix[r][i] == 1) factor += 0.02;
+                }
+                double noise = (random.nextDouble() - 0.5) * 0.05;
+                tensions[i] = Math.min(6.0, Math.max(0.1, baseTension * factor + noise));
+            }
+
+            currentStep += batchSteps;
+            double progress = Math.min(100.0, (double) currentStep / totalSteps * 100.0);
+
+            Map<String, Object> batch = new LinkedHashMap<>();
+            batch.put("batchIndex", b);
+            batch.put("stepsCompleted", currentStep);
+            batch.put("progress", Math.round(progress * 100.0) / 100.0);
+            batch.put("tensions", tensions);
+            batch.put("avgTension", Math.round(Arrays.stream(tensions).average().orElse(0) * 100.0) / 100.0);
+            batchResults.add(batch);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("designId", designId);
+        result.put("totalBatches", batches);
+        result.put("batchSize", batchSize);
+        result.put("totalSteps", steps);
+        result.put("finalProgress", Math.min(100.0, (double) currentStep / totalSteps * 100.0));
+        result.put("batches", batchResults);
+        return result;
+    }
+
+    public Map<String, Object> getCacheStats() {
+        Map<String, Object> stats = new LinkedHashMap<>();
+        stats.put("cacheSize", matrixCache.size());
+        stats.put("maxCacheSize", CACHE_MAX_SIZE);
+        stats.put("cacheTTLSeconds", CACHE_TTL_MS / 1000);
+        return stats;
+    }
+
+    private int[][] parsePalette(String paletteStr) {
+        if (paletteStr == null || paletteStr.trim().isEmpty()) {
+            return new int[][]{{139, 69, 19}, {232, 212, 168}, {205, 133, 63}, {255, 215, 0}, {178, 34, 34}};
+        }
+        String[] lines = paletteStr.split("\\n");
+        List<int[]> colors = new ArrayList<>();
+        for (String line : lines) {
+            String[] parts = line.split(",");
+            if (parts.length >= 2) {
+                try {
+                    int[] rgb = hexToRgb(parts[1].trim());
+                    if (rgb != null) colors.add(rgb);
+                } catch (Exception ignored) {}
+            }
+        }
+        if (colors.isEmpty()) {
+            return new int[][]{{139, 69, 19}, {232, 212, 168}};
+        }
+        return colors.toArray(new int[0][]);
+    }
+
+    private int[] hexToRgb(String hex) {
+        String h = hex.replace("#", "");
+        if (h.length() == 3) {
+            h = String.valueOf(h.charAt(0)) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+        }
+        try {
+            return new int[]{Integer.parseInt(h.substring(0, 2), 16),
+                           Integer.parseInt(h.substring(2, 4), 16),
+                           Integer.parseInt(h.substring(4, 6), 16)};
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private Pageable createPageable(int page, int size, String sortBy) {

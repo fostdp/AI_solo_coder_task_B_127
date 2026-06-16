@@ -100,6 +100,17 @@ public class PatternLibraryController {
         }
     }
 
+    @GetMapping("/{id}/similar-scored")
+    public ResponseEntity<Map<String, Object>> getSimilarPatternsWithScores(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "6") int limit) {
+        try {
+            return ResponseEntity.ok(patternService.findSimilarPatternsWithScores(id, limit));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @GetMapping("/{id}/matrix")
     public ResponseEntity<int[][]> getPatternMatrix(@PathVariable Long id) {
         try {

@@ -289,6 +289,22 @@ public class ColorAnalysisService {
         return result;
     }
 
+    private static final double[] D65_WHITE_POINT = {95.047, 100.000, 108.883};
+
+    private static final double EPSILON = 216.0 / 24389.0;
+    private static final double KAPPA = 24389.0 / 27.0;
+
+    private static final double[][] SRGB_TO_XYZ_MATRIX = {
+            {0.4124564, 0.3575761, 0.1804375},
+            {0.2126729, 0.7151522, 0.0721750},
+            {0.0193339, 0.1191920, 0.9503041}
+    };
+
+    private static final double GAMMA_THRESHOLD = 0.04045;
+    private static final double GAMMA_SLOPE = 1.0 / 12.92;
+    private static final double GAMMA_OFFSET = 0.055;
+    private static final double GAMMA_EXPONENT = 2.4;
+
     private double colorDistance(int[] rgb1, int[] rgb2) {
         double[] lab1 = rgbToLab(rgb1);
         double[] lab2 = rgbToLab(rgb2);
@@ -299,27 +315,100 @@ public class ColorAnalysisService {
     }
 
     private double[] rgbToLab(int[] rgb) {
-        double r = rgb[0] / 255.0;
-        double g = rgb[1] / 255.0;
-        double b = rgb[2] / 255.0;
+        double rLinear = correctGamma(rgb[0] / 255.0);
+        double gLinear = correctGamma(rgb[1] / 255.0);
+        double bLinear = correctGamma(rgb[2] / 255.0);
 
-        r = (r > 0.04045) ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
-        g = (g > 0.04045) ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
-        b = (b > 0.04045) ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+        double x = rLinear * SRGB_TO_XYZ_MATRIX[0][0] +
+                  gLinear * SRGB_TO_XYZ_MATRIX[0][1] +
+                  bLinear * SRGB_TO_XYZ_MATRIX[0][2];
+        double y = rLinear * SRGB_TO_XYZ_MATRIX[1][0] +
+                  gLinear * SRGB_TO_XYZ_MATRIX[1][1] +
+                  bLinear * SRGB_TO_XYZ_MATRIX[1][2];
+        double z = rLinear * SRGB_TO_XYZ_MATRIX[2][0] +
+                  gLinear * SRGB_TO_XYZ_MATRIX[2][1] +
+                  bLinear * SRGB_TO_XYZ_MATRIX[2][2];
 
-        double x = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047;
-        double y = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 1.00000;
-        double z = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883;
+        double xn = x / D65_WHITE_POINT[0] * 100.0;
+        double yn = y / D65_WHITE_POINT[1] * 100.0;
+        double zn = z / D65_WHITE_POINT[2] * 100.0;
 
-        x = (x > 0.008856) ? Math.cbrt(x) : (7.787 * x) + 16.0 / 116;
-        y = (y > 0.008856) ? Math.cbrt(y) : (7.787 * y) + 16.0 / 116;
-        z = (z > 0.008856) ? Math.cbrt(z) : (7.787 * z) + 16.0 / 116;
+        double fx = applyLabTransform(xn / 100.0);
+        double fy = applyLabTransform(yn / 100.0);
+        double fz = applyLabTransform(zn / 100.0);
 
-        return new double[]{
-                (116 * y) - 16,
-                500 * (x - y),
-                200 * (y - z)
-        };
+        double L = 116.0 * fy - 16.0;
+        double a = 500.0 * (fx - fy);
+        double b = 200.0 * (fy - fz);
+
+        L = Math.max(0.0, Math.min(100.0, L));
+        a = Math.max(-128.0, Math.min(128.0, a));
+        b = Math.max(-128.0, Math.min(128.0, b));
+
+        return new double[]{Math.round(L * 10000.0) / 10000.0,
+                           Math.round(a * 10000.0) / 10000.0,
+                           Math.round(b * 10000.0) / 10000.0};
+    }
+
+    private double correctGamma(double value) {
+        if (value <= GAMMA_THRESHOLD) {
+            return value * GAMMA_SLOPE;
+        } else {
+            return Math.pow((value + GAMMA_OFFSET) / (1.0 + GAMMA_OFFSET), GAMMA_EXPONENT);
+        }
+    }
+
+    private double applyLabTransform(double t) {
+        if (t > EPSILON) {
+            return Math.cbrt(t);
+        } else {
+            return (KAPPA * t + 16.0) / 116.0;
+        }
+    }
+
+    public double[] labToRgb(double[] lab) {
+        double fy = (lab[0] + 16.0) / 116.0;
+        double fx = lab[1] / 500.0 + fy;
+        double fz = fy - lab[2] / 200.0;
+
+        double xn = inverseLabTransform(fx) * D65_WHITE_POINT[0];
+        double yn = inverseLabTransform(fy) * D65_WHITE_POINT[1];
+        double zn = inverseLabTransform(fz) * D65_WHITE_POINT[2];
+
+        double x = xn / 100.0;
+        double y = yn / 100.0;
+        double z = zn / 100.0;
+
+        double rLinear =  3.2404542 * x - 1.5371385 * y - 0.4985314 * z;
+        double gLinear = -0.9692660 * x + 1.8760108 * y + 0.0415560 * z;
+        double bLinear =  0.0556434 * x - 0.2040259 * y + 1.0572252 * z;
+
+        int r = (int) Math.round(255.0 * inverseGamma(rLinear));
+        int g = (int) Math.round(255.0 * inverseGamma(gLinear));
+        int b = (int) Math.round(255.0 * inverseGamma(bLinear));
+
+        r = Math.max(0, Math.min(255, r));
+        g = Math.max(0, Math.min(255, g));
+        b = Math.max(0, Math.min(255, b));
+
+        return new double[]{r, g, b};
+    }
+
+    private double inverseGamma(double value) {
+        if (value <= 0.0031308) {
+            return 12.92 * value;
+        } else {
+            return (1.0 + GAMMA_OFFSET) * Math.pow(value, 1.0 / GAMMA_EXPONENT) - GAMMA_OFFSET;
+        }
+    }
+
+    private double inverseLabTransform(double t) {
+        double t3 = t * t * t;
+        if (t3 > EPSILON) {
+            return t3;
+        } else {
+            return (116.0 * t - 16.0) / KAPPA;
+        }
     }
 
     private int[] hexToRgb(String hex) {

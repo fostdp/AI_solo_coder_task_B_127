@@ -92,6 +92,12 @@ public class YunjinVariety {
     @Column(length = 500)
     private String imageUrl;
 
+    @Column(columnDefinition = "TEXT")
+    private String referenceSources;
+
+    @Column
+    private Integer dataAccuracyLevel;
+
     @Column
     private LocalDateTime createdAt;
 
@@ -331,6 +337,22 @@ public class YunjinVariety {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public String getReferenceSources() {
+        return referenceSources;
+    }
+
+    public void setReferenceSources(String referenceSources) {
+        this.referenceSources = referenceSources;
+    }
+
+    public Integer getDataAccuracyLevel() {
+        return dataAccuracyLevel;
+    }
+
+    public void setDataAccuracyLevel(Integer dataAccuracyLevel) {
+        this.dataAccuracyLevel = dataAccuracyLevel;
     }
 
     public LocalDateTime getCreatedAt() {

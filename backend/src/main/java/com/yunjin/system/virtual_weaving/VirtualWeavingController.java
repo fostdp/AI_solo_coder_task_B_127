@@ -164,4 +164,55 @@ public class VirtualWeavingController {
     public ResponseEntity<Map<String, Object>> getStatistics() {
         return ResponseEntity.ok(weavingService.getDesignStatistics());
     }
+
+    @GetMapping("/designs/{id}/webgl-texture")
+    public ResponseEntity<?> getWebGLTexture(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int version) {
+        try {
+            Map<String, Object> result = weavingService.getWebGLTextureData(id, version);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/designs/{id}/simulate-batch")
+    public ResponseEntity<?> simulateWeavingBatch(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "10") int batchSize,
+            @RequestParam(defaultValue = "100") int steps) {
+        try {
+            Map<String, Object> result = weavingService.simulateWeavingBatch(id, batchSize, steps);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/designs/{id}/matrix-cached")
+    public ResponseEntity<int[][]> getCachedMatrix(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int version) {
+        try {
+            return ResponseEntity.ok(weavingService.getCachedMatrix(id, version));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @DeleteMapping("/designs/{id}/cache")
+    public ResponseEntity<Map<String, Object>> invalidateCache(@PathVariable Long id) {
+        int removed = weavingService.invalidateCache(id);
+        return ResponseEntity.ok(Map.of(
+                "designId", id,
+                "cacheEntriesInvalidated", removed,
+                "success", true
+        ));
+    }
+
+    @GetMapping("/cache-stats")
+    public ResponseEntity<Map<String, Object>> getCacheStats() {
+        return ResponseEntity.ok(weavingService.getCacheStats());
+    }
 }
