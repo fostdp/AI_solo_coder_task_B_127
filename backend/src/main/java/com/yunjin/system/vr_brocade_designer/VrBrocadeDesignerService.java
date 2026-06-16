@@ -1,4 +1,4 @@
-package com.yunjin.system.virtual_weaving;
+package com.yunjin.system.vr_brocade_designer;
 
 import com.yunjin.system.entity.UserWeavingDesign;
 import com.yunjin.system.entity.PatternDesign;
@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @Service
-public class VirtualWeavingService {
+public class VrBrocadeDesignerService {
 
     private static final int CACHE_MAX_SIZE = 1000;
     private static final long CACHE_TTL_MS = 5 * 60 * 1000;
@@ -67,7 +67,7 @@ public class VirtualWeavingService {
     private final PatternDesignRepository patternRepository;
     private final YunjinVarietyRepository varietyRepository;
 
-    public VirtualWeavingService(UserWeavingDesignRepository designRepository,
+    public VrBrocadeDesignerService(UserWeavingDesignRepository designRepository,
                                   PatternDesignRepository patternRepository,
                                   YunjinVarietyRepository varietyRepository) {
         this.designRepository = designRepository;

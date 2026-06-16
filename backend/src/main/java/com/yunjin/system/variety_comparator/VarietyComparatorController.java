@@ -1,4 +1,4 @@
-package com.yunjin.system.variety_comparison;
+package com.yunjin.system.variety_comparator;
 
 import com.yunjin.system.entity.YunjinVariety;
 import org.springframework.http.ResponseEntity;
@@ -10,11 +10,11 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/varieties")
 @CrossOrigin(origins = "*")
-public class VarietyController {
+public class VarietyComparatorController {
 
-    private final VarietyComparisonService varietyService;
+    private final VarietyComparatorService varietyService;
 
-    public VarietyController(VarietyComparisonService varietyService) {
+    public VarietyComparatorController(VarietyComparatorService varietyService) {
         this.varietyService = varietyService;
     }
 

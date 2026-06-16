@@ -1,4 +1,4 @@
-package com.yunjin.system.pattern_library;
+package com.yunjin.system.pattern_searcher;
 
 import com.yunjin.system.entity.PatternDesign;
 import org.springframework.data.domain.Page;
@@ -11,11 +11,11 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/patterns")
 @CrossOrigin(origins = "*")
-public class PatternLibraryController {
+public class PatternSearcherController {
 
-    private final PatternLibraryService patternService;
+    private final PatternSearcherService patternService;
 
-    public PatternLibraryController(PatternLibraryService patternService) {
+    public PatternSearcherController(PatternSearcherService patternService) {
         this.patternService = patternService;
     }
 

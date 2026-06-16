@@ -1,4 +1,4 @@
-package com.yunjin.system.pattern_library;
+package com.yunjin.system.pattern_searcher;
 
 import com.yunjin.system.entity.PatternDesign;
 import com.yunjin.system.repository.PatternDesignRepository;
@@ -12,11 +12,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-public class PatternLibraryService {
+public class PatternSearcherService {
 
     private final PatternDesignRepository patternRepository;
 
-    public PatternLibraryService(PatternDesignRepository patternRepository) {
+    public PatternSearcherService(PatternDesignRepository patternRepository) {
         this.patternRepository = patternRepository;
     }
 

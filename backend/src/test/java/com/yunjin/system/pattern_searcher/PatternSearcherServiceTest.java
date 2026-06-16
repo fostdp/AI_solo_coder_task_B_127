@@ -1,4 +1,4 @@
-package com.yunjin.system.pattern_library;
+package com.yunjin.system.pattern_searcher;
 
 import com.yunjin.system.entity.PatternDesign;
 import com.yunjin.system.repository.PatternDesignRepository;
@@ -21,14 +21,14 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("古代云锦纹样数据库与智能检索测试 - PatternLibraryService")
-class PatternLibraryServiceTest {
+@DisplayName("古代云锦纹样数据库与智能检索测试 - PatternSearcherService")
+class PatternSearcherServiceTest {
 
     @Mock
     private PatternDesignRepository patternRepository;
 
     @InjectMocks
-    private PatternLibraryService patternService;
+    private PatternSearcherService patternService;
 
     private PatternDesign lotusPattern;
 

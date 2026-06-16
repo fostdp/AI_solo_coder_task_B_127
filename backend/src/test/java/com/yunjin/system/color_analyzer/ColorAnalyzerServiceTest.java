@@ -1,4 +1,4 @@
-package com.yunjin.system.color_analysis;
+package com.yunjin.system.color_analyzer;
 
 import com.yunjin.system.entity.ColorPalette;
 import com.yunjin.system.repository.ColorPaletteRepository;
@@ -18,14 +18,14 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("传统与数码色彩对比分析测试 - ColorAnalysisService")
-class ColorAnalysisServiceTest {
+@DisplayName("传统与数码色彩对比分析测试 - ColorAnalyzerService")
+class ColorAnalyzerServiceTest {
 
     @Mock
     private ColorPaletteRepository paletteRepository;
 
     @InjectMocks
-    private ColorAnalysisService colorService;
+    private ColorAnalyzerService colorService;
 
     private ColorPalette tradQing;
 

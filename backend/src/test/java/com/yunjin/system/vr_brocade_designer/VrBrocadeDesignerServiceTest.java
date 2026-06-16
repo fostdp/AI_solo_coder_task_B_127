@@ -1,4 +1,4 @@
-package com.yunjin.system.virtual_weaving;
+package com.yunjin.system.vr_brocade_designer;
 
 import com.yunjin.system.entity.PatternDesign;
 import com.yunjin.system.entity.UserWeavingDesign;
@@ -25,8 +25,8 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("公众虚拟织锦体验测试 - VirtualWeavingService")
-class VirtualWeavingServiceTest {
+@DisplayName("公众虚拟织锦体验测试 - VrBrocadeDesignerService")
+class VrBrocadeDesignerServiceTest {
 
     @Mock
     private UserWeavingDesignRepository designRepository;
@@ -38,7 +38,7 @@ class VirtualWeavingServiceTest {
     private YunjinVarietyRepository varietyRepository;
 
     @InjectMocks
-    private VirtualWeavingService weavingService;
+    private VrBrocadeDesignerService weavingService;
 
     private YunjinVariety zhuanghua;
 

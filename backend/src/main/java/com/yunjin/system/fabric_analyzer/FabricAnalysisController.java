@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/api/analysis")
@@ -39,6 +40,40 @@ public class FabricAnalysisController {
             Map<String, Object> error = new HashMap<>();
             error.put("success", false);
             error.put("message", "织物分析失败: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
+    @PostMapping("/analyze-async/{loomId}")
+    public ResponseEntity<Map<String, Object>> analyzeAsync(@PathVariable Long loomId) {
+        try {
+            CompletableFuture<FabricAnalysis> future = analysisService.analyzeFabricStructureAsync(loomId);
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("message", "织物分析任务已提交，正在傅里叶分析将在线程池中异步执行");
+            result.put("taskStatus", "SUBMITTED");
+            result.put("loomId", loomId);
+            return ResponseEntity.accepted().body(result);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("message", "提交分析任务失败: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
+    @GetMapping("/fourier-pool-stats")
+    public ResponseEntity<Map<String, Object>> getFourierPoolStats() {
+        try {
+            Map<String, Object> stats = analysisService.getFourierThreadPoolStats();
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("data", stats);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("message", "获取线程池状态失败: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }

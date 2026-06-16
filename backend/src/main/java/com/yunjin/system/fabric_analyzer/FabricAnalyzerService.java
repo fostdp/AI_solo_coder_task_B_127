@@ -11,9 +11,14 @@ import org.apache.commons.math3.transform.DftNormalization;
 import org.apache.commons.math3.transform.FastFourierTransformer;
 import org.apache.commons.math3.transform.TransformType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class FabricAnalyzerService {
@@ -21,6 +26,7 @@ public class FabricAnalyzerService {
     private final FabricAnalysisRepository fabricAnalysisRepository;
     private final WeavingSimulationRepository weavingSimulationRepository;
     private final ObjectMapper objectMapper;
+    private final ExecutorService fourierExecutor;
 
     private final FastFourierTransformer fftTransformer =
             new FastFourierTransformer(DftNormalization.STANDARD);
@@ -28,10 +34,12 @@ public class FabricAnalyzerService {
     @Autowired
     public FabricAnalyzerService(FabricAnalysisRepository fabricAnalysisRepository,
                                  WeavingSimulationRepository weavingSimulationRepository,
-                                 ObjectMapper objectMapper) {
+                                 ObjectMapper objectMapper,
+                                 @Qualifier("fourierAnalysisExecutor") ExecutorService fourierExecutor) {
         this.fabricAnalysisRepository = fabricAnalysisRepository;
         this.weavingSimulationRepository = weavingSimulationRepository;
         this.objectMapper = objectMapper;
+        this.fourierExecutor = fourierExecutor;
     }
 
     public FabricAnalysis analyzeFabricStructure(Long loomId) {
@@ -570,5 +578,40 @@ public class FabricAnalyzerService {
         result.put("significantEdges", significantEdges);
 
         return result;
+    }
+
+    public CompletableFuture<Map<String, Object>> performFFTAnalysisAsync(int[][] matrix) {
+        return CompletableFuture.supplyAsync(() -> performFFTAnalysis(matrix), fourierExecutor);
+    }
+
+    public CompletableFuture<FabricAnalysis> analyzeFabricStructureAsync(Long loomId) {
+        return CompletableFuture.supplyAsync(() -> analyzeFabricStructure(loomId), fourierExecutor);
+    }
+
+    public Map<String, Object> getFourierThreadPoolStats() {
+        Map<String, Object> stats = new LinkedHashMap<>();
+        if (fourierExecutor instanceof ThreadPoolExecutor) {
+            ThreadPoolExecutor tpe = (ThreadPoolExecutor) fourierExecutor;
+            stats.put("poolSize", tpe.getPoolSize());
+            stats.put("activeCount", tpe.getActiveCount());
+            stats.put("completedTaskCount", tpe.getCompletedTaskCount());
+            stats.put("taskCount", tpe.getTaskCount());
+            stats.put("queueSize", tpe.getQueue().size());
+            stats.put("corePoolSize", tpe.getCorePoolSize());
+            stats.put("maximumPoolSize", tpe.getMaximumPoolSize());
+            stats.put("isShutdown", tpe.isShutdown());
+            stats.put("isTerminated", tpe.isTerminated());
+        } else {
+            stats.put("error", "Executor is not a ThreadPoolExecutor");
+        }
+        return stats;
+    }
+
+    public boolean awaitFourierTasks(long timeout, TimeUnit unit) throws InterruptedException {
+        if (fourierExecutor instanceof ThreadPoolExecutor) {
+            ThreadPoolExecutor tpe = (ThreadPoolExecutor) fourierExecutor;
+            return tpe.awaitTermination(timeout, unit);
+        }
+        return false;
     }
 }

@@ -24,6 +24,18 @@
     }
 
     function initNewModules() {
+        if (typeof VarietyComparator !== 'undefined' && VarietyComparator.init) {
+            VarietyComparator.init();
+        }
+        if (typeof PatternSearcher !== 'undefined' && PatternSearcher.init) {
+            PatternSearcher.init();
+        }
+        if (typeof ColorAnalyzer !== 'undefined' && ColorAnalyzer.init) {
+            ColorAnalyzer.init();
+        }
+        if (typeof VrBrocadeDesigner !== 'undefined' && VrBrocadeDesigner.init) {
+            VrBrocadeDesigner.init();
+        }
         if (typeof VarietyPanel !== 'undefined' && VarietyPanel.init) {
             VarietyPanel.init();
         }

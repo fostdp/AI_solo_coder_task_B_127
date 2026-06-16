@@ -1,4 +1,4 @@
-package com.yunjin.system.virtual_weaving;
+package com.yunjin.system.vr_brocade_designer;
 
 import com.yunjin.system.entity.UserWeavingDesign;
 import org.springframework.data.domain.Page;
@@ -11,11 +11,11 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/virtual-weaving")
 @CrossOrigin(origins = "*")
-public class VirtualWeavingController {
+public class VrBrocadeDesignerController {
 
-    private final VirtualWeavingService weavingService;
+    private final VrBrocadeDesignerService weavingService;
 
-    public VirtualWeavingController(VirtualWeavingService weavingService) {
+    public VrBrocadeDesignerController(VrBrocadeDesignerService weavingService) {
         this.weavingService = weavingService;
     }
 

@@ -1,4 +1,4 @@
-package com.yunjin.system.variety_comparison;
+package com.yunjin.system.variety_comparator;
 
 import com.yunjin.system.entity.YunjinVariety;
 import com.yunjin.system.repository.YunjinVarietyRepository;
@@ -8,11 +8,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-public class VarietyComparisonService {
+public class VarietyComparatorService {
 
     private final YunjinVarietyRepository varietyRepository;
 
-    public VarietyComparisonService(YunjinVarietyRepository varietyRepository) {
+    public VarietyComparatorService(YunjinVarietyRepository varietyRepository) {
         this.varietyRepository = varietyRepository;
     }
 
@@ -148,7 +148,7 @@ public class VarietyComparisonService {
     public YunjinVariety updateVariety(Long id, YunjinVariety variety) {
         YunjinVariety existing = varietyRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("品种不存在"));
-        
+
         existing.setName(variety.getName());
         existing.setAlias(variety.getAlias());
         existing.setDescription(variety.getDescription());

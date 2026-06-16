@@ -1,4 +1,4 @@
-package com.yunjin.system.color_analysis;
+package com.yunjin.system.color_analyzer;
 
 import com.yunjin.system.entity.ColorPalette;
 import org.springframework.http.ResponseEntity;
@@ -10,11 +10,11 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/colors")
 @CrossOrigin(origins = "*")
-public class ColorAnalysisController {
+public class ColorAnalyzerController {
 
-    private final ColorAnalysisService colorService;
+    private final ColorAnalyzerService colorService;
 
-    public ColorAnalysisController(ColorAnalysisService colorService) {
+    public ColorAnalyzerController(ColorAnalyzerService colorService) {
         this.colorService = colorService;
     }
 

@@ -1,4 +1,4 @@
-package com.yunjin.system.color_analysis;
+package com.yunjin.system.color_analyzer;
 
 import com.yunjin.system.entity.ColorPalette;
 import com.yunjin.system.repository.ColorPaletteRepository;
@@ -8,11 +8,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-public class ColorAnalysisService {
+public class ColorAnalyzerService {
 
     private final ColorPaletteRepository paletteRepository;
 
-    public ColorAnalysisService(ColorPaletteRepository paletteRepository) {
+    public ColorAnalyzerService(ColorPaletteRepository paletteRepository) {
         this.paletteRepository = paletteRepository;
     }
 
